@@ -51,7 +51,8 @@ class roboteq_bmsComponent(RComponent):
 	def __init__(self):
 		RComponent.__init__(self)
 
-		self.port = rospy.get_param('~port', '/dev/ttyUSB_ROBOTEQ_BMS')
+		self.port = rospy.get_param('~port', '/dev/ttyACM0')
+		self.baud = rospy.get_param('~baud', 115200)
 		self.read_errors = 0
 		self.bat_level= 0.0
 		self.voltage = 0.0
@@ -60,19 +61,16 @@ class roboteq_bmsComponent(RComponent):
 		self.cell_currents = ''
 		self.status_flags = ''
 		self.battery_status_message = robotnik_msgs.msg.BatteryStatus()
-		self.bms_temperature = std_msgs.msg.Int32()
-		self.cell_voltages_msg = std_msgs.msg.String()
-		self.cell_currents_msg = std_msgs.msg.String()
+		self.bms_temperature = robotnik_msgs.msg.BMS_Temperature()
 		self.status_flags_msg = std_msgs.msg.String()
 		self.serial_device = None
 
 	def setup(self):
 
 		RComponent.setup(self)
-
 		self.serial_device = serial.Serial(
 			port= self.port,
-			baudrate=115200,
+			baudrate=self.baud,
 			parity=serial.PARITY_NONE,
 			stopbits=1,
 			bytesize=8,
@@ -81,6 +79,7 @@ class roboteq_bmsComponent(RComponent):
 			dsrdtr=False,
 		rtscts=False
 		)
+
 
 
 	def shutdown(self):
@@ -97,10 +96,8 @@ class roboteq_bmsComponent(RComponent):
 		RComponent.rosSetup(self)
 
 		self.bat_data_publisher_ = rospy.Publisher('~data', robotnik_msgs.msg.BatteryStatus, queue_size=100)
-		self.bms_temp_publisher_ = rospy.Publisher('~temperature', std_msgs.msg.Int32, queue_size=100)
+		self.bms_temp_publisher_ = rospy.Publisher('~temperature', robotnik_msgs.msg.BMS_Temperature, queue_size=100)
 		self.status_flags_publisher_ = rospy.Publisher('~status_flags', std_msgs.msg.String, queue_size=100)
-		self.cell_voltages_publisher_ = rospy.Publisher('~cell_voltages', std_msgs.msg.String, queue_size=100)
-		self.cell_currents_publisher_ = rospy.Publisher('~cell_currents', std_msgs.msg.String, queue_size=100)
 
 	def rosShutdown(self):
 		if self._running:
@@ -112,13 +109,9 @@ class roboteq_bmsComponent(RComponent):
 
 		RComponent.rosShutdown(self)
 
-		#self.set_digital_outputs_service_.shutdown()
-		#self.get_sw_version_service_.shutdown()
 		self.bat_data_publisher_.unregister()
 		self.bms_temp_publisher_.unregister()
 		self.status_flags_publisher_.unregister()
-		self.cell_voltages_publisher_.unregister()
-		self.cell_currents_publisher_.unregister()
 
 	def readyState(self):
 		if not rospy.is_shutdown():
@@ -133,7 +126,7 @@ class roboteq_bmsComponent(RComponent):
 					emptys.append(False)
 				else:
 					emptys.append(True)
-			except ValueError, e:
+			except ValueError as e:
 				rospy.logerr('%s::readyState: error reading ?BSC - response (%s): %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
@@ -151,13 +144,12 @@ class roboteq_bmsComponent(RComponent):
 					emptys.append(False)
 				else:
 					emptys.append(True)
-			except ValueError, e:
+			except ValueError as e:
 				rospy.logerr('%s::readyState: error reading ?A 1 - response (%s):: %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 			self.writeToSerialDevice("?V 1" + "\r")
 			line_read = str(self.readFromSerialDevice())
-
 			try:
 				if line_read != '':
 					self.voltage = float(line_read.partition("V=")[2])
@@ -165,23 +157,25 @@ class roboteq_bmsComponent(RComponent):
 					emptys.append(False)
 				else:
 					emptys.append(True)
-			except ValueError, e:
+			except ValueError as e:
 				rospy.logerr('%s::readyState: error reading ?V 1 - response (%s):: %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
-			self.writeToSerialDevice("?T 1" + "\r")
+
+			self.writeToSerialDevice("?T" + "\r")
 			line_read = str(self.readFromSerialDevice())
 
 			try:
 				if line_read != '':
 					temperature = line_read.partition("T=")[2]
-					self.temperature = float(temperature)
-					self.bms_temperature.data = self.temperature
+					temperature = temperature.split(":")
+					self.temperature = list(map(int, temperature))
+					self.bms_temperature.data = self.temperature[:3]
 					emptys.append(False)
 				else:
 					emptys.append(True)
-			except ValueError, e:
-				rospy.logerr('%s::readyState: error reading ?T 1 - response (%s):: %s', rospy.get_name(), line_read, e)
+			except ValueError as e:
+				rospy.logerr('%s::readyState: error reading ?T - response (%s):: %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 			self.writeToSerialDevice("?BMF" + "\r")
@@ -194,43 +188,16 @@ class roboteq_bmsComponent(RComponent):
 					emptys.append(False)
 				else:
 					emptys.append(True)
-			except ValueError, e:
+			except ValueError as e:
 				rospy.logerr('%s::readyState: error reading ?BMF - response(%s): %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
-			self.writeToSerialDevice("?V" + "\r")
-			line_read = str(self.readFromSerialDevice())
-
-			try:
-				if line_read != '':
-					self.cell_voltages = line_read.partition("V=")[2]
-					self.cell_voltages_msg.data = self.cell_voltages
-					emptys.append(False)
-				else:
-					emptys.append(True)
-			except ValueError, e:
-				rospy.logerr('%s::readyState: error reading ?V - response(%s): %s', rospy.get_name(), line_read, e)
-				emptys.append(True)
-
-			self.writeToSerialDevice("?A" + "\r")
-			line_read = str(self.readFromSerialDevice())
-
-			try:
-				if line_read != '':
-					self.cell_currents = line_read.partition("A=")[2]
-					self.cell_currents_msg.data = self.cell_currents
-					emptys.append(False)
-				else:
-					emptys.append(True)
-			except ValueError, e:
-				rospy.logerr('%s::readyState: error reading ?A - response (%s): %s', rospy.get_name(), line_read, e)
-				emptys.append(True)
 
 			if all(emptys):
 				rospy.logerr('%s::readyState: no response from bms', self._node_name)
 				self.switchToState(State.FAILURE_STATE)
 			elif any(emptys):
-				rospy.logwarn('%s::readyState: some response msgs from bms are empty', self._node_name)
+				rospy.logwarn_once('%s::readyState: some response msgs from bms are empty', self._node_name)
 
 
 
@@ -239,8 +206,6 @@ class roboteq_bmsComponent(RComponent):
 		self.bat_data_publisher_.publish(self.battery_status_message)
 		self.bms_temp_publisher_.publish(self.bms_temperature)
 		self.status_flags_publisher_.publish(self.status_flags_msg)
-		self.cell_voltages_publisher_.publish(self.cell_voltages_msg)
-		self.cell_currents_publisher_.publish(self.cell_currents_msg)
 
 	def writeToSerialDevice(self, data):
 		bytes_written = self.serial_device.write(data)
