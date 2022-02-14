@@ -119,10 +119,11 @@ class roboteq_bmsComponent(RComponent):
 			emptys = []
 			self.writeToSerialDevice("?BSC" + "\r")
 			line_read = str(self.readFromSerialDevice())
-
+			rospy.logwarn(line_read)
 			try:
 				if line_read != '':
-					self.bat_level = float(line_read.partition("BSC=")[2])
+					self.bat_level = (line_read.partition("BSC=")[2])
+					rospy.logwarn(line_read.partition("BSC="))
 					self.battery_status_message.level = self.bat_level
 					emptys.append(False)
 				else:
@@ -133,7 +134,7 @@ class roboteq_bmsComponent(RComponent):
 
 			self.writeToSerialDevice("?A 1" + "\r")
 			line_read = str(self.readFromSerialDevice())
-
+			rospy.logwarn(line_read)
 
 			try:
 				if line_read != '':
@@ -152,6 +153,7 @@ class roboteq_bmsComponent(RComponent):
 
 			self.writeToSerialDevice("?V 1" + "\r")
 			line_read = str(self.readFromSerialDevice())
+			rospy.logwarn(line_read)
 
 			try:
 				if line_read != '':
@@ -167,6 +169,7 @@ class roboteq_bmsComponent(RComponent):
 
 			self.writeToSerialDevice("?T" + "\r")
 			line_read = str(self.readFromSerialDevice())
+			rospy.logwarn(line_read)
 
 			try:
 				if line_read != '':
@@ -183,7 +186,7 @@ class roboteq_bmsComponent(RComponent):
 
 			self.writeToSerialDevice("?BMF" + "\r")
 			line_read = str(self.readFromSerialDevice())
-
+			rospy.logwarn(line_read)
 
 			try:
 				if line_read != '':
@@ -217,8 +220,8 @@ class roboteq_bmsComponent(RComponent):
 
 	def readFromSerialDevice(self):
 		try:
-			data_read = self.serial_device.readline().replace('\x00', '')
-
+			data_read = self.serial_device.readline().replace(")
+			# rospy.logwarn(data_read + '\r')
 		except SerialException as e:
 			rospy.logwarn(e)
 			return

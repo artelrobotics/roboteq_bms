@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
-	<arg name="port" default="/dev/ttyACM0"/>
-	<arg name="baud" type="int" default="115200"/>
+	<arg name="port" default="/dev/ttyTHS1"/>
+	<arg name="baud" default="115200"/>
 	<node type="roboteq_bms.py" name="roboteq_bms" pkg="roboteq_bms" output="screen" respawn="true" respawn_delay="10">
 		<param name="port" value="$(arg port)"/>
 		<param name="baud" value="$(arg baud)"/>
