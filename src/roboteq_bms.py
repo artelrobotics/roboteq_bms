@@ -33,6 +33,8 @@
 
 import sys
 
+from pyparsing import line
+
 import rospy
 
 import time, threading
@@ -60,9 +62,11 @@ class roboteq_bmsComponent(RComponent):
 		self.cell_voltages = ''
 		self.cell_currents = ''
 		self.status_flags = ''
+		self.fault_flags = ''
 		self.battery_status_message = robotnik_msgs.msg.BatteryStatus()
 		self.bms_temperature = robotnik_msgs.msg.BMS_Temperature()
 		self.status_flags_msg = std_msgs.msg.String()
+		self.fault_flags_msg = std_msgs.msg.String()
 		self.serial_device = None
 
 	def setup(self):
@@ -98,6 +102,7 @@ class roboteq_bmsComponent(RComponent):
 		self.bat_data_publisher_ = rospy.Publisher('~data', robotnik_msgs.msg.BatteryStatus, queue_size=100)
 		self.bms_temp_publisher_ = rospy.Publisher('~temperature', robotnik_msgs.msg.BMS_Temperature, queue_size=100)
 		self.status_flags_publisher_ = rospy.Publisher('~status_flags', std_msgs.msg.String, queue_size=100)
+		self.fault_flags_publisher_ = rospy.Publisher('~fault_flags', std_msgs.msg.String, queue_size=100)
 
 	def rosShutdown(self):
 		if self._running:
@@ -112,6 +117,7 @@ class roboteq_bmsComponent(RComponent):
 		self.bat_data_publisher_.unregister()
 		self.bms_temp_publisher_.unregister()
 		self.status_flags_publisher_.unregister()
+		self.fault_flags_publisher_.unregister()
 
 	def readyState(self):
 		if not rospy.is_shutdown():
@@ -165,6 +171,26 @@ class roboteq_bmsComponent(RComponent):
 				emptys.append(True)
 
 
+			self.writeToSerialDevice("?V" + "\r")
+			line_read = str(self.readFromSerialDevice())
+			
+			try:
+				if line_read != '':
+					voltage = (line_read.partition("V="))
+					voltage = voltage[2].split(":")
+					cell_voltages = list(map(float, voltage[3:11]))
+					cell_voltages = [val * 0.001 for val in cell_voltages]
+					self.battery_status_message.min_cell = min(cell_voltages)
+					self.battery_status_message.max_cell = max(cell_voltages)
+					self.battery_status_message.avg_cell = sum(cell_voltages)/len(cell_voltages)
+					emptys.append(False)
+				else:
+					emptys.append(True)
+			except ValueError as e:
+				rospy.logerr('%s::readyState: error reading ?V 1 - response (%s):: %s', rospy.get_name(), line_read, e)
+				emptys.append(True)
+
+
 			self.writeToSerialDevice("?T" + "\r")
 			line_read = str(self.readFromSerialDevice())
 
@@ -181,19 +207,37 @@ class roboteq_bmsComponent(RComponent):
 				rospy.logerr('%s::readyState: error reading ?T - response (%s):: %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
-			self.writeToSerialDevice("?BMF" + "\r")
+
+
+			self.writeToSerialDevice("?FS" + "\r")
 			line_read = str(self.readFromSerialDevice())
 
 
 			try:
 				if line_read != '':
-					self.status_flags = line_read.partition("BMF=")[2]
-					self.status_flags_msg.data = self.status_flags
+					self.status_flags = line_read.partition("FS=")[2]
+					self.status_flags_msg.data = self.status_flags.replace("\r", "")
 					emptys.append(False)
 				else:
 					emptys.append(True)
 			except ValueError as e:
-				rospy.logerr('%s::readyState: error reading ?BMF - response(%s): %s', rospy.get_name(), line_read, e)
+				rospy.logerr('%s::readyState: error reading ?FS - response(%s): %s', rospy.get_name(), line_read, e)
+				emptys.append(True)
+
+
+
+			self.writeToSerialDevice("?FF" + "\r")
+			line_read = str(self.readFromSerialDevice())
+
+			try:
+				if line_read != '':
+					self.fault_flags = line_read.partition("FF=")[2]
+					self.fault_flags_msg.data = self.fault_flags.replace("\r", "")
+					emptys.append(False)
+				else:
+					emptys.append(True)
+			except ValueError as e:
+				rospy.logerr('%s::readyState: error reading ?FF - response(%s): %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 
@@ -210,6 +254,7 @@ class roboteq_bmsComponent(RComponent):
 		self.bat_data_publisher_.publish(self.battery_status_message)
 		self.bms_temp_publisher_.publish(self.bms_temperature)
 		self.status_flags_publisher_.publish(self.status_flags_msg)
+		self.fault_flags_publisher_.publish(self.fault_flags_msg)
 
 	def writeToSerialDevice(self, data):
 		bytes_written = self.serial_device.write(data)
