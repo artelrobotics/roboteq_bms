@@ -68,7 +68,7 @@ class roboteq_bmsComponent(RComponent):
 		self.status_flags_msg = std_msgs.msg.String()
 		self.fault_flags_msg = std_msgs.msg.String()
 		self.serial_device = None
-
+		
 	def setup(self):
 
 		RComponent.setup(self)
@@ -134,7 +134,7 @@ class roboteq_bmsComponent(RComponent):
 				else:
 					emptys.append(True)
 			except ValueError as e:
-				rospy.logerr('%s::readyState: error reading ?BSC - response (%s): %s', rospy.get_name(), line_read, e)
+				#rospy.logerr('%s::readyState: error reading ?BSC - response (%s): %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 			self.writeToSerialDevice("?A 1" + "\r")
@@ -143,9 +143,9 @@ class roboteq_bmsComponent(RComponent):
 
 			try:
 				if line_read != '':
-					self.current = -float(line_read.partition("A=")[2])
+					self.current = float(line_read.partition("A=")[2])
 					self.battery_status_message.current = self.current*0.01
-					if self.battery_status_message.current < -0.5:
+					if self.battery_status_message.current > 0.0:
 						self.battery_status_message.is_charging = True
 					else:
 						self.battery_status_message.is_charging = False
@@ -153,7 +153,7 @@ class roboteq_bmsComponent(RComponent):
 				else:
 					emptys.append(True)
 			except ValueError as e:
-				rospy.logerr('%s::readyState: error reading ?A 1 - response (%s):: %s', rospy.get_name(), line_read, e)
+				#rospy.logerr('%s::readyState: error reading ?A 1 - response (%s):: %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 			self.writeToSerialDevice("?V 1" + "\r")
@@ -167,7 +167,7 @@ class roboteq_bmsComponent(RComponent):
 				else:
 					emptys.append(True)
 			except ValueError as e:
-				rospy.logerr('%s::readyState: error reading ?V 1 - response (%s):: %s', rospy.get_name(), line_read, e)
+				#rospy.logerr('%s::readyState: error reading ?V 1 - response (%s):: %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 
@@ -187,7 +187,7 @@ class roboteq_bmsComponent(RComponent):
 				else:
 					emptys.append(True)
 			except ValueError as e:
-				rospy.logerr('%s::readyState: error reading ?V 1 - response (%s):: %s', rospy.get_name(), line_read, e)
+				#rospy.logerr('%s::readyState: error reading ?V 1 - response (%s):: %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 
@@ -204,7 +204,7 @@ class roboteq_bmsComponent(RComponent):
 				else:
 					emptys.append(True)
 			except ValueError as e:
-				rospy.logerr('%s::readyState: error reading ?T - response (%s):: %s', rospy.get_name(), line_read, e)
+				#rospy.logerr('%s::readyState: error reading ?T - response (%s):: %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 
@@ -221,7 +221,7 @@ class roboteq_bmsComponent(RComponent):
 				else:
 					emptys.append(True)
 			except ValueError as e:
-				rospy.logerr('%s::readyState: error reading ?FS - response(%s): %s', rospy.get_name(), line_read, e)
+				#rospy.logerr('%s::readyState: error reading ?FS - response(%s): %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 
@@ -237,7 +237,7 @@ class roboteq_bmsComponent(RComponent):
 				else:
 					emptys.append(True)
 			except ValueError as e:
-				rospy.logerr('%s::readyState: error reading ?FF - response(%s): %s', rospy.get_name(), line_read, e)
+				#rospy.logerr('%s::readyState: error reading ?FF - response(%s): %s', rospy.get_name(), line_read, e)
 				emptys.append(True)
 
 
@@ -245,8 +245,8 @@ class roboteq_bmsComponent(RComponent):
 				rospy.logerr('%s::readyState: no response from bms', self._node_name)
 				self.switchToState(robotnik_msgs.msg.State.FAILURE_STATE)
 			elif any(emptys):
-				rospy.logwarn_once('%s::readyState: some response msgs from bms are empty', self._node_name)
-
+				#rospy.logwarn_once('%s::readyState: some response msgs from bms are empty', self._node_name)
+				pass
 
 
 	def rosPublish(self):
@@ -265,7 +265,7 @@ class roboteq_bmsComponent(RComponent):
 			data_read = self.serial_device.readline().replace('\x00', '')
 
 		except SerialException as e:
-			rospy.logwarn(e)
+			#rospy.logwarn(e)
 			return
 
 		return data_read
